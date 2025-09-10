@@ -88,6 +88,8 @@ async function enableDefaultDomains() {
 		'draftjs.org',
 		'gitlab.com',
 		'core.trac.wordpress.org',
+		'write.ellipsus.com',
+		'www.facebook.com',
 	];
 
 	for (const item of defaultEnabledDomains) {
