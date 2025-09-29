@@ -90,6 +90,7 @@ async function enableDefaultDomains() {
 		'core.trac.wordpress.org',
 		'write.ellipsus.com',
 		'www.facebook.com',
+		'www.upwork.com',
 	];
 
 	for (const item of defaultEnabledDomains) {
