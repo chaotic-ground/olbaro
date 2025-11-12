@@ -96,6 +96,7 @@ async function enableDefaultDomains() {
 		'www.upwork.com',
 		'news.ycombinator.com',
 		'classroom.google.com',
+		'quilljs.com',
 	];
 
 	for (const item of defaultEnabledDomains) {
