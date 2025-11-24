@@ -1,12 +1,13 @@
 @import "tailwindcss";
-@import "components/components.css";
+
+@plugin "flowbite/plugin";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-@theme {
-	--font-sans: "Atkinson Hyperlegible", sans-serif;
-	--font-serif: Domine, serif;
+@source "./src/lib/**/*.{svelte,ts}";
+@source "./node_modules/flowbite-svelte/**/*.{svelte,ts,js}";
 
+@theme {
 	--color-primary-50: #fef4e7; /* honey bronze */
 	--color-primary-100: #fce9cf;
 	--color-primary-200: #f9d49f;
@@ -68,21 +69,6 @@
 	--color-white-950: #221502;
 }
 
-code {
-	@apply bg-primary-100 rounded p-1 dark:text-black;
-}
-
-#app {
-	@apply min-h-screen bg-white text-black dark:bg-black dark:text-white transition-colors duration-150;
-
-	font-family:
-		Atkinson Hyperlegible,
-		sans-serif;
-}
-
-h1,
-h2,
-h3,
-h4 {
-	font-family: Domine, serif;
+body {
+	@apply bg-white dark:bg-white-900 dark:text-white;
 }
