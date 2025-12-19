@@ -20,7 +20,7 @@ export default defineConfig({
 	},
 	webServer: {
 		command: 'pnpm http-server ./tests/pages/ -p 8081',
-		url: 'http://localhost:8081',
+		url: 'http://127.0.0.1:8081',
 		stdout: 'ignore',
 		stderr: 'pipe',
 	},
