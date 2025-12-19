@@ -20,9 +20,9 @@ export default defineConfig({
 	},
 	globalTimeout: 120000,
 	webServer: {
-		command: 'pnpm http-server ./tests/pages/ -p 8081',
+		command: 'pnpm exec http-server ./tests/pages -p 8081 -a 127.0.0.1',
 		url: 'http://127.0.0.1:8081',
-		stdout: 'ignore',
+		stdout: 'pipe',
 		stderr: 'pipe',
 	},
 	/* Configure projects for major browsers */
