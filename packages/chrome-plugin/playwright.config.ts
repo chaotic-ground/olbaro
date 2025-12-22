@@ -18,7 +18,7 @@ export default defineConfig({
 		/* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
 		trace: 'on-first-retry',
 	},
-  /** A half hour */
+	/** A half hour */
 	globalTimeout: 1800000,
 	webServer: {
 		command: 'pnpm exec http-server ./tests/pages -p 8081 -a 127.0.0.1',
