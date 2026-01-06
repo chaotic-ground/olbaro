@@ -104,6 +104,7 @@ async function enableDefaultDomains() {
 		'classroom.google.com',
 		'quilljs.com',
 		'www.wattpad.com',
+		'ckeditor.com',
 	];
 
 	for (const item of defaultEnabledDomains) {
