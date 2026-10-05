@@ -1,5 +1,6 @@
 {
 	"private": true,
+	"license": "Apache-2.0",
 	"engines": {
 		"node": ">=22",
 		"pnpm": "^10.6.3"
