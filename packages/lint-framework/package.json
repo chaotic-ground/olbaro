@@ -27,7 +27,7 @@
 		"virtual-dom": "^2.1.1"
 	},
 	"peerDependencies": {
-		"harper.js": "workspace:*"
+		"harper.js": "2.10.0"
 	},
 	"devDependencies": {
 		"@types/chrome": "0.1.27",

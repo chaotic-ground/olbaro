@@ -1,0 +1,11 @@
+{
+	"private": true,
+	"engines": {
+		"node": ">=22",
+		"pnpm": "^10.6.3"
+	},
+	"devDependencies": {
+		"typescript": "catalog:"
+	},
+	"packageManager": "pnpm@10.10.0"
+}
