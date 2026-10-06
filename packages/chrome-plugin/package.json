@@ -54,7 +54,7 @@
 		"@fortawesome/free-solid-svg-icons": "^7.1.0",
 		"@webcomponents/custom-elements": "^1.6.0",
 		"components": "workspace:*",
-		"harper.js": "workspace:*",
+		"harper.js": "2.10.0",
 		"lint-framework": "workspace:*",
 		"lodash-es": "^4.17.21",
 		"lru-cache": "^11.1.0",
