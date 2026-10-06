@@ -1,0 +1,62 @@
+name: Sync Harper extension
+
+on:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/sync-harper.yml
+      - .github/scripts/sync-harper.sh
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-harper
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      SYNC_BRANCH: sync/harper
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install git-filter-repo
+        run: python3 -m pip install --user git-filter-repo
+
+      - name: Configure git
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Split and merge
+        id: sync
+        run: .github/scripts/sync-harper.sh
+
+      # On pull requests the job only checks that the split and merge work.
+      - name: Fail on conflict
+        if: steps.sync.outputs.status == 'conflict'
+        run: |
+          echo "::error::Merging Harper ${{ steps.sync.outputs.upstream_sha }} conflicts with this branch; see the log above."
+          exit 1
+
+      - name: Push and open a pull request
+        if: github.event_name != 'pull_request' && steps.sync.outputs.status == 'merged'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_SHA: ${{ steps.sync.outputs.upstream_sha }}
+        run: |
+          git push --force origin "HEAD:refs/heads/$SYNC_BRANCH"
+          title="Sync Harper's extension packages to ${UPSTREAM_SHA:0:8}"
+          body="Splits \`packages/chrome-plugin\`, \`packages/lint-framework\` and \`packages/components\` from [Automattic/harper@${UPSTREAM_SHA:0:8}](https://github.com/Automattic/harper/commit/$UPSTREAM_SHA) and merges them. Opened by the [Sync Harper extension](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) workflow."
+          if [ -n "$(gh pr list --head "$SYNC_BRANCH" --state open --json number --jq '.[].number')" ]; then
+            gh pr edit "$SYNC_BRANCH" --title "$title" --body "$body"
+          else
+            gh pr create --head "$SYNC_BRANCH" --base "${{ github.event.repository.default_branch }}" --title "$title" --body "$body"
+          fi
