@@ -24,4 +24,4 @@ jobs:
       - run: cargo clippy --all-targets --locked -- -D warnings
       - run: cargo test --locked
       # 코어와 규칙은 브라우저에서도 돌아야 한다.
-      - run: cargo build --locked -p olbaro-core -p olbaro-rules --target wasm32-unknown-unknown
+      - run: cargo build --locked -p olbaro-core -p olbaro-rules -p olbaro-wasm --target wasm32-unknown-unknown

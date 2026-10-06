@@ -1,11 +1,4 @@
-import {
-	createBinaryModuleFromUrl,
-	type Dialect,
-	type LintConfig,
-	LocalLinter,
-	unpackWeirpackBytes,
-} from 'harper.js';
-import { type UnpackedLintGroups, unpackLint } from 'lint-framework';
+import { type Dialect, type LintConfig, unpackWeirpackBytes } from 'harper.js';
 import type { PopupState } from '../PopupState';
 import {
 	ActivationKey,
@@ -58,6 +51,7 @@ import {
 	type WeirpackMeta,
 } from '../protocol';
 import { detectBrowserDialect } from './detectDialect';
+import OlbaroLinter from './olbaroLinter';
 
 console.log('background is running');
 
@@ -105,7 +99,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
 	}
 });
 
-let linter: LocalLinter;
+let linter: OlbaroLinter;
 const WEIRPACKS_KEY = 'weirpacks';
 const linterStorageKeys = [
 	'dialect',
@@ -304,22 +298,7 @@ async function handleLint(
 		return { kind: 'lints', lints: {} };
 	}
 
-	const isolateEnglish = req.options?.isolateEnglish === true || (await getIsolateEnglish());
-	const grouped = await linter.organizedLints(req.text, { ...req.options, isolateEnglish });
-	const unpackedEntries = await Promise.all(
-		Object.entries(grouped).map(async ([source, lints]) => {
-			const unpacked = await Promise.all(lints.map((lint) => unpackLint(req.text, lint, linter)));
-
-			// Free the lints
-			lints.forEach((l) => {
-				l.free();
-			});
-
-			return [source, unpacked] as const;
-		}),
-	);
-	const unpackedBySource = Object.fromEntries(unpackedEntries) as UnpackedLintGroups;
-	return { kind: 'lints', lints: unpackedBySource };
+	return { kind: 'lints', lints: await linter.lint(req.text) };
 }
 
 async function resetLinterIfPersistedStateWasCleared(): Promise<void> {
@@ -726,10 +705,7 @@ async function initializeLinter(dialect: Dialect) {
 		linter.dispose();
 	}
 
-	linter = new LocalLinter({
-		binary: createBinaryModuleFromUrl(chrome.runtime.getURL('./wasm/harper_wasm_bg.wasm')),
-		dialect,
-	});
+	linter = new OlbaroLinter({ dialect });
 
 	await Promise.all([
 		getIgnoredLints().then((i) => linter.importIgnoredLints(i)),

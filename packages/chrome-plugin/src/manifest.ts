@@ -80,7 +80,6 @@ export default defineManifest({
 		{
 			matches: ['<all_urls>'],
 			resources: [
-				'wasm/harper_wasm_bg.wasm',
 				'google-docs-bridge.js',
 				'google-docs-protocol.js',
 				'google-docs-bridge-request-handler.js',
