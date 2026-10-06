@@ -1,0 +1,534 @@
+import type { BrowserContext, Locator, Page } from '@playwright/test';
+import type { LintConfig } from 'harper.js';
+import type { Box } from 'lint-framework';
+import { expect, test } from './fixtures';
+
+type ScreenPoint = {
+	x: number;
+	y: number;
+};
+
+export async function getBackground(context: BrowserContext) {
+	return (
+		context.serviceWorkers()[0] ??
+		context.backgroundPages()[0] ??
+		(await Promise.race([
+			context.waitForEvent('serviceworker', { timeout: 90000 }),
+			context.waitForEvent('backgroundpage', { timeout: 90000 }),
+		]))
+	);
+}
+
+export async function getExtensionId(context: BrowserContext): Promise<string> {
+	const background = await getBackground(context);
+	return background.url().split('/')[2];
+}
+
+export async function openExtensionPage(
+	context: BrowserContext,
+	page: Page,
+	path: 'popup.html' | 'options.html',
+) {
+	const extensionId = await getExtensionId(context);
+	await page.goto(`chrome-extension://${extensionId}/${path}`);
+}
+
+export async function getStoredLintConfig(context: BrowserContext): Promise<LintConfig> {
+	const background = await getBackground(context);
+	return await background.evaluate(async () => {
+		const value = await chrome.storage.local.get('lintConfig');
+		return JSON.parse(value.lintConfig ?? '{}');
+	});
+}
+
+export async function getStoredDelay(context: BrowserContext): Promise<number> {
+	const background = await getBackground(context);
+	return await background.evaluate(async () => {
+		const value = await chrome.storage.local.get({ delay: 0 });
+		return typeof value.delay === 'number' ? value.delay : 0;
+	});
+}
+
+/** Locate the [`Slate`](https://www.slatejs.org/examples/richtext) editor on the page.  */
+export function getSlateEditor(page: Page): Locator {
+	return page.locator('[data-slate-editor="true"]');
+}
+
+/** Locate the [`Lexical`](https://lexical.dev/) editor on the page.  */
+export function getLexicalEditor(page: Page): Locator {
+	return page.locator('[data-lexical-editor="true"]');
+}
+
+/** Locate the ProseMirror editor on the page.  */
+export function getProseMirrorEditor(page: Page): Locator {
+	return page.locator('.ProseMirror');
+}
+
+/** Locate the Draft.js editor on the page (targets #rich-example on draftjs.org). */
+export function getDraftEditor(page: Page): Locator {
+	return page.locator('#rich-example .public-DraftEditor-content');
+}
+
+/** Replace the content of a text editor. */
+export async function replaceEditorContent(editorEl: Locator, text: string, softBreaks = false) {
+	// Seed form controls in one update so popup tests cannot click lints for partial words.
+	// Rich editors still need their keyboard-driven editing behavior.
+	if (await isFormElement(editorEl)) {
+		await editorEl.fill(text);
+		return;
+	}
+
+	await editorEl.selectText();
+	await editorEl.press('Backspace');
+
+	const lines = text.split('\n');
+	const breakKey = softBreaks ? 'Shift+Enter' : 'Enter';
+
+	for (let i = 0; i < lines.length; i++) {
+		await editorEl.pressSequentially(lines[i]);
+		if (i < lines.length - 1) {
+			await editorEl.press(breakKey);
+		}
+	}
+}
+
+/** Locate replacement rows (including explicit empty states) inside Harper's suggestion popup. */
+export function getHarperSuggestionRows(page: Page): Locator {
+	return page.locator('.harper-container').getByRole('menuitem');
+}
+
+/** Locate the Harper highlights on a page. */
+export function getHarperHighlights(page: Page): Locator {
+	return page.locator('#harper-highlight');
+}
+
+/**
+ * Wait for the first Harper highlight to exist and return its screen-space center.
+ *
+ * We return screen coordinates instead of a DOM node because some editors replace parts of
+ * the DOM during updates. Coordinates are still usable even if the original highlight element
+ * gets disconnected and recreated.
+ */
+export async function waitForHarperHighlightCenter(
+	page: Page,
+	timeoutMs = 30000,
+): Promise<ScreenPoint | null> {
+	const highlight = getHarperHighlights(page).first();
+
+	try {
+		await highlight.waitFor({ state: 'visible', timeout: timeoutMs });
+	} catch {
+		return null;
+	}
+
+	const box = await highlight.boundingBox();
+	if (box == null || box.width <= 0 || box.height <= 0) {
+		return null;
+	}
+
+	return {
+		x: box.x + box.width / 2,
+		y: box.y + box.height / 2,
+	};
+}
+
+export async function assertLocatorIsFocused(page: Page, loc: Locator) {
+	await assertLocatorsResolveEqually(page, loc, page.locator(':focus'));
+}
+
+/**  Checks that the two provided locators resolve to the same element. */
+export async function assertLocatorsResolveEqually(page: Page, a: Locator, b: Locator) {
+	const areSame = await page.evaluate(
+		([a, b]) => a === b,
+		[await a.elementHandle(), await b.elementHandle()],
+	);
+
+	expect(areSame).toBe(true);
+}
+
+/** Locates the first Harper highlight on the page and clicks it.
+ * It should result in the popup opening.
+ * Returns whether the highlight was found. */
+export async function clickHarperHighlight(page: Page): Promise<boolean> {
+	const center = await waitForHarperHighlightCenter(page);
+	if (center == null) return false;
+
+	await page.mouse.click(center.x, center.y);
+	return true;
+}
+
+/**
+ * Open the Harper popup by dispatching the same `pointerdown` event Harper receives from
+ * the editor itself.
+ *
+ * This is intentionally different from clicking the floating highlight. Some editors replace
+ * parts of the DOM while the popup is opening, which can briefly disconnect and recreate
+ * Harper's popup host. Tests for that behavior need to follow the same event path as a real
+ * editor interaction.
+ */
+export async function openHarperPopupFromEditorPointerDown(
+	page: Page,
+	editor: Locator,
+): Promise<boolean> {
+	const center = await waitForHarperHighlightCenter(page);
+	if (center == null) {
+		return false;
+	}
+
+	try {
+		await editor.dispatchEvent('pointerdown', {
+			bubbles: true,
+			composed: true,
+			button: 0,
+			buttons: 1,
+			clientX: center.x,
+			clientY: center.y,
+			pointerId: 1,
+			pointerType: 'mouse',
+			screenX: center.x,
+			screenY: center.y,
+		});
+		await page.locator('.harper-container').waitFor({ state: 'visible', timeout: 2000 });
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/** Grab the first `<textarea />` on a page. */
+export function getTextarea(page: Page): Locator {
+	return page.locator('textarea');
+}
+
+/** A string or function that resolves to a test page. */
+export type TestPageUrlProvider = string | ((page: Page) => Promise<string>);
+
+/** A function that returns an editor locator. */
+export type EditorLocatorProvider = (page: Page) => Locator;
+
+async function resolveTestPage(prov: TestPageUrlProvider, page: Page): Promise<string> {
+	if (typeof prov === 'string') {
+		return prov;
+	} else {
+		return await prov(page);
+	}
+}
+
+/** Exact-match assertion: `toHaveValue` for form elements, `toHaveText` for contenteditable. */
+async function assertEditorText(editor: Locator, text: string) {
+	if (await isFormElement(editor)) {
+		await expect(editor).toHaveValue(text);
+	} else {
+		await expect(editor).toHaveText(text);
+	}
+}
+
+/** Substring assertion: `inputValue` for form elements, `toContainText` for contenteditable. */
+async function assertEditorContains(editor: Locator, text: string) {
+	if (await isFormElement(editor)) {
+		const value = await editor.inputValue();
+		expect(value).toContain(text);
+	} else {
+		await expect(editor).toContainText(text);
+	}
+}
+
+async function isFormElement(editor: Locator): Promise<boolean> {
+	return editor.evaluate((el) => el.tagName === 'TEXTAREA' || el.tagName === 'INPUT');
+}
+
+/** Test applying a basic suggestion and verify cursor position after replacement. */
+export async function testBasicSuggestion(
+	testPageUrl: TestPageUrlProvider,
+	getEditor: EditorLocatorProvider,
+	setup?: (page: Page, editor: Locator) => Promise<void>,
+) {
+	test('Can apply basic suggestion.', async ({ page }) => {
+		test.slow();
+		const url = await resolveTestPage(testPageUrl, page);
+		await page.goto(url);
+
+		const editor = getEditor(page);
+		if (setup) {
+			await setup(page, editor);
+		}
+		await replaceEditorContent(editor, 'This is an test');
+
+		const opened = await clickHarperHighlight(page);
+		expect(opened).toBe(true);
+		await page.getByTitle('Click to replace "an" with "a"').click();
+
+		await page.waitForTimeout(3000);
+
+		await assertEditorText(editor, 'This is a test');
+
+		await page.waitForTimeout(3000);
+
+		// Cursor should be right after "a" (pos 9). ArrowRight×3 + Backspace deletes 'e'.
+		await page.keyboard.press('ArrowRight');
+		await page.waitForTimeout(200);
+		await page.keyboard.press('ArrowRight');
+		await page.waitForTimeout(200);
+		await page.keyboard.press('ArrowRight');
+		await page.waitForTimeout(200);
+		await page.keyboard.press('Backspace');
+		await assertEditorText(editor, 'This is a tst');
+
+		// Verify typing still works.
+		await editor.pressSequentially('e');
+		await assertEditorText(editor, 'This is a test');
+	});
+}
+
+/** Test ignoring a suggestion. */
+export async function testCanIgnoreSuggestion(
+	testPageUrl: TestPageUrlProvider,
+	getEditor: EditorLocatorProvider,
+	setup?: (page: Page, editor: Locator) => Promise<void>,
+) {
+	test('Can ignore suggestion.', async ({ page }) => {
+		test.slow();
+		const url = await resolveTestPage(testPageUrl, page);
+		await page.goto(url);
+
+		const editor = getEditor(page);
+		if (setup) {
+			await setup(page, editor);
+		}
+
+		const testText = 'This is a mistaek.';
+		await replaceEditorContent(editor, testText);
+
+		// test.slow() does not extend assertion timeouts during linter startup.
+		await expect(getHarperHighlights(page)).toHaveCount(1, { timeout: 30000 });
+
+		// Open the popup for the highlight and click Ignore.
+		const opened = await clickHarperHighlight(page);
+		expect(opened).toBe(true);
+
+		// The popup captures the editor's cursor state on the next animation frame.
+		await page.evaluate(
+			() =>
+				new Promise<void>((resolve) =>
+					requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+				),
+		);
+		await page.getByTitle('Ignore this lint').click();
+
+		// Wait for highlights to disappear after ignoring.
+		await expect(getHarperHighlights(page)).toHaveCount(0, { timeout: 10000 });
+
+		// Nothing should change.
+		await assertEditorText(editor, testText);
+	});
+}
+
+/** Test disabling a lint rule via the block button. */
+export async function testCanBlockRuleSuggestion(
+	testPageUrl: TestPageUrlProvider,
+	getEditor: EditorLocatorProvider,
+	setup?: (page: Page, editor: Locator) => Promise<void>,
+) {
+	test('Can hide with rule block button', async ({ page }) => {
+		test.slow();
+		const url = await resolveTestPage(testPageUrl, page);
+		await page.goto(url);
+
+		const editor = getEditor(page);
+		if (setup) {
+			await setup(page, editor);
+		}
+		await replaceEditorContent(editor, 'I could of gone.');
+
+		await page.waitForTimeout(1000);
+
+		const opened = await clickHarperHighlight(page);
+		expect(opened).toBe(true);
+
+		await page.getByTitle('Disable the ModalOf rule').click();
+
+		await page.waitForTimeout(1000);
+
+		await assertHarperHighlightBoxes(page, []);
+		await assertLocatorIsFocused(page, editor);
+	});
+}
+
+/** Get highlight bounding boxes sorted by visual position (top to bottom, left to right). */
+async function getSortedHighlightBoxes(page: Page) {
+	const highlights = getHarperHighlights(page);
+	const count = await highlights.count();
+	const boxes: NonNullable<Awaited<ReturnType<Locator['boundingBox']>>>[] = [];
+
+	for (let i = 0; i < count; i++) {
+		const box = await highlights.nth(i).boundingBox();
+		if (box) {
+			boxes.push(box);
+		}
+	}
+
+	boxes.sort((a, b) => (Math.abs(a.y - b.y) > 5 ? a.y - b.y : a.x - b.x));
+
+	return boxes;
+}
+
+/** Test multiline suggestion replacement and undo. */
+export async function testMultipleSuggestionsAndUndo(
+	testPageUrl: TestPageUrlProvider,
+	getEditor: EditorLocatorProvider,
+	setup?: (page: Page, editor: Locator) => Promise<void>,
+) {
+	test('Multiple suggestions and undo.', async ({ page }) => {
+		test.slow();
+		const url = await resolveTestPage(testPageUrl, page);
+		await page.goto(url);
+
+		const editor = getEditor(page);
+		if (setup) {
+			await setup(page, editor);
+		}
+
+		// Soft breaks: no false positives from concatenation + correct span alignment.
+		await replaceEditorContent(editor, 'Valid words\ntset here.', true);
+		await page.waitForTimeout(4000);
+		await expect(getHarperHighlights(page)).toHaveCount(1);
+		expect(await clickHarperHighlight(page)).toBe(true);
+		await page.getByTitle('Click to replace "tset" with "test"').click();
+		await page.waitForTimeout(5000);
+		await assertEditorContains(editor, 'test here');
+
+		await replaceEditorContent(editor, 'The first tset.\nThe second tset.\nThe third tset.');
+		await page.waitForTimeout(12000);
+		await expect(getHarperHighlights(page)).toHaveCount(3);
+
+		// Get highlights sorted by visual position and click on the middle one
+		const sortedBoxes = await getSortedHighlightBoxes(page);
+		expect(sortedBoxes.length).toBe(3);
+		const box = sortedBoxes[1];
+		await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+
+		// Move cursor away to test whether it handles race condition
+		for (let i = 0; i < 4; i++) {
+			await editor.press('ArrowLeft');
+		}
+
+		await page.getByTitle('Click to replace "tset" with "test"').click();
+		await page.waitForTimeout(5000);
+
+		// Verify only second "tset" was corrected
+		await assertEditorContains(editor, 'first tset');
+		await assertEditorContains(editor, 'second test');
+		await assertEditorContains(editor, 'third tset');
+
+		// Undo
+		await editor.press('Control+z');
+		await page.waitForTimeout(3000);
+		await assertEditorContains(editor, 'The second tset');
+	});
+}
+
+export async function assertHarperHighlightBoxes(
+	page: Page,
+	boxes: Box[] | Box[][],
+): Promise<void> {
+	const expectedAlternatives = isBoxAlternatives(boxes) ? boxes : [boxes];
+	const highlights = getHarperHighlights(page);
+
+	await expect(highlights).toHaveCount(expectedAlternatives[0].length, { timeout: 24000 });
+
+	const count = await highlights.count();
+
+	const gotBoxes: Box[] = [];
+	for (let i = 0; i < count; i++) {
+		const box = await highlights.nth(i).boundingBox();
+		gotBoxes.push(box!);
+	}
+
+	console.log('Got:', gotBoxes);
+	console.log('Expected:', boxes);
+
+	for (const gotBox of gotBoxes) {
+		expect(gotBox).not.toBeNull();
+	}
+
+	const matches = expectedAlternatives.some((expectedBoxes) => {
+		let close = false;
+		for (const permutation of permutations(expectedBoxes)) {
+			if (boxesClose(gotBoxes, permutation)) {
+				close = true;
+			}
+		}
+		return close;
+	});
+
+	expect(matches).toBe(true);
+}
+
+function permutations<T>(items: readonly T[]): T[][] {
+	if (items.length <= 1) {
+		return [[...items]];
+	}
+
+	return items.flatMap((item, index) => {
+		const remaining = [...items.slice(0, index), ...items.slice(index + 1)];
+
+		return permutations(remaining).map((permutation) => [item, ...permutation]);
+	});
+}
+
+/** Create a test to assert that a page has a certain number highlights.
+ * Wraps `assertPageHasNHighlights` */
+export async function testPageHasNHighlights(testPageUrl: TestPageUrlProvider, n: number) {
+	test(`Page has ${n} highlights`, async ({ page }) => {
+		const url = await resolveTestPage(testPageUrl, page);
+		await page.goto(url);
+
+		await page.waitForTimeout(6000);
+
+		await assertPageHasNHighlights(page, n);
+	});
+}
+
+/** Assert that the page has a specific number of highlights.
+ * Useful for making sure certain patterns are ignored. */
+export async function assertPageHasNHighlights(page: Page, n: number) {
+	const highlights = getHarperHighlights(page);
+	await expect(highlights).toHaveCount(n, { timeout: 12000 });
+}
+
+/** An assertion that checks to ensure that two boxes are _approximately_ equal.
+ * Leaves wiggle room for floating point error. */
+export function assertBoxesClose(a: Box, b: Box) {
+	assertClose(a.x, b.x);
+	assertClose(a.y, b.y);
+	assertClose(a.width, b.width);
+	assertClose(a.height, b.height);
+}
+
+function isBoxAlternatives(boxes: Box[] | Box[][]): boxes is Box[][] {
+	return Array.isArray(boxes[0]);
+}
+
+/** Check if an array of baxes is approximately the same as another array of boxes. */
+function boxesClose(actual: Box[], expected: Box[]): boolean {
+	if (actual.length !== expected.length) return false;
+
+	return actual.every((actualBox, i) => boxClose(actualBox, expected[i]));
+}
+
+function boxClose(actual: Box, expected: Box) {
+	return (
+		close(actual.x, expected.x) &&
+		close(actual.y, expected.y) &&
+		close(actual.width, expected.width) &&
+		close(actual.height, expected.height)
+	);
+}
+
+function close(actual: number, expected: number) {
+	return Math.abs(actual - expected) <= 15;
+}
+
+function assertClose(actual: number, expected: number) {
+	expect(close(actual, expected)).toBe(true);
+}
