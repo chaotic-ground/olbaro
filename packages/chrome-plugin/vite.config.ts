@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
 				hook: 'buildStart',
 				targets: [
 					{
-						src: '../harper.js/dist/harper_wasm_bg.wasm',
+						src: 'node_modules/harper.js/dist/harper_wasm_bg.wasm',
 						dest: './public/wasm',
 					},
 				],
