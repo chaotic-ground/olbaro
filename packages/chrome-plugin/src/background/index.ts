@@ -55,15 +55,6 @@ import OlbaroLinter from './olbaroLinter';
 
 console.log('background is running');
 
-chrome.runtime.onInstalled.addListener((details) => {
-	if (details.reason === chrome.runtime.OnInstalledReason.INSTALL) {
-		chrome.runtime.setUninstallURL('https://writewithharper.com/uninstall-browser-extension');
-		chrome.tabs.create({
-			url: 'https://writewithharper.com/install-browser-extension',
-		});
-	}
-});
-
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 	handleRequest(request, sender).then(sendResponse);
 

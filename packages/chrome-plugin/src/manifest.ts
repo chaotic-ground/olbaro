@@ -25,8 +25,6 @@ export function makeExtensionCSP(isDev: boolean): string {
 		styleSrc.push('http://localhost:5173', 'http://127.0.0.1:*');
 	}
 
-	connectSrc.push('https://writewithharper.com');
-
 	// Assemble the semicolon-delimited CSP
 	return `${[
 		`script-src ${scriptSrc.join(' ')}`,
@@ -38,8 +36,8 @@ export function makeExtensionCSP(isDev: boolean): string {
 }
 
 export default defineManifest({
-	name: `Private Grammar Checker - Harper${isDev ? ' ➡️ Dev' : ''}`,
-	description: packageData.description,
+	name: `올바로${isDev ? ' ➡️ Dev' : ''}`,
+	description: '한국어 맞춤법·문체 검사기',
 	version: packageData.version,
 	manifest_version: 3,
 	action: {
@@ -48,7 +46,7 @@ export default defineManifest({
 	options_page: 'options.html',
 	browser_specific_settings: {
 		gecko: {
-			id: 'harper@writewithharper.com',
+			id: 'olbaro@chaotic-ground',
 			strict_min_version: '146.0',
 		},
 	},
@@ -93,5 +91,4 @@ export default defineManifest({
 	content_security_policy: {
 		extension_pages: makeExtensionCSP(isDev),
 	},
-	host_permissions: ['https://writewithharper.com/*'],
 });

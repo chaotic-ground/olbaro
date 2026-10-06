@@ -343,10 +343,10 @@ async function removeWeirpack(id: string) {
   <div class="mx-auto max-w-screen-lg space-y-4">
     <Card class="flex items-center gap-3">
       <div class="flex h-9 w-9 items-center justify-center rounded-xl">
-        <img src={logo} alt="Harper logo" class="h-5 w-auto" />
+        <img src={logo} alt="" class="h-5 w-auto" />
       </div>
       <div class="flex flex-col">
-        <h1 class="text-base tracking-wide font-serif">Harper</h1>
+        <h1 class="text-base tracking-wide font-serif">올바로</h1>
         <p class="text-xs">Settings</p>
       </div>
     </Card>
@@ -354,36 +354,6 @@ async function removeWeirpack(id: string) {
     <!-- ── GENERAL ───────────────────────────── -->
     <Card class="space-y-6">
       <h2 class="pb-1 text-xs uppercase tracking-wider">General</h2>
-
-      <div class="space-y-5">
-        <div class="flex items-center justify-between">
-          <h3 class="text-sm">English Dialect</h3>
-          <Select size="sm" class="w-44" bind:value={dialect}>
-            <option value={Dialect.American}>🇺🇸 American</option>
-            <option value={Dialect.British}>🇬🇧 British</option>
-            <option value={Dialect.Australian}>🇦🇺 Australian</option>
-            <option value={Dialect.Canadian}>🇨🇦 Canadian</option>
-            <option value={Dialect.Indian}>🇮🇳 Indian</option>
-          </Select>
-        </div>
-      </div>
-
-      <div class="space-y-5">
-        <div class="flex items-center justify-between">
-          <div class="flex flex-col">
-            <h3 class="text-sm">Ignore Non-English Text</h3>
-            <p class="text-xs text-gray-600 dark:text-gray-400">
-              Skip text that Harper detects as not English.
-            </p>
-          </div>
-          <input
-            type="checkbox"
-            checked={isolateEnglish}
-            onchange={setIsolateEnglishFromCheckbox}
-            class="h-5 w-5"
-          />
-        </div>
-      </div>
 
       <div class="space-y-5">
         <div class="flex items-center justify-between">
@@ -439,7 +409,7 @@ async function removeWeirpack(id: string) {
           <div class="flex flex-col">
             <h3 class="text-sm">Activation Key</h3>
             <p class="text-xs text-gray-600 dark:text-gray-400">
-              If you're finding that you're accidentally triggering Harper.
+              If you're finding that you're accidentally triggering the checker.
             </p>
           </div>
           <Select size="sm" class="w-44" bind:value={activationKey}>
@@ -483,65 +453,6 @@ async function removeWeirpack(id: string) {
           <Textarea bind:value={userDict}></Textarea>
         </div>
       </div>
-    </Card>
-
-    <Card class="space-y-4">
-      <h2 class="pb-1 text-xs uppercase tracking-wider">Weirpacks</h2>
-
-      <div class="space-y-2 flex flex-row w-full justify-between">
-        <p class="text-xs text-gray-600 dark:text-gray-400">
-          Upload one or more <code>.weirpack</code> files to add custom rule
-          packs.
-          <a href="https://writewithharper.com/docs/weir#Weirpacks"
-            >What is a Weirpack?</a
-          >
-        </p>
-        <input
-          type="file"
-          accept=".weirpack,application/zip"
-          multiple
-          disabled={weirpackBusy}
-          onchange={handleWeirpackUpload}
-          class="block w-1/4 text-sm file:rounded-md file:border-0 file:bg-primary file:text-white disabled:opacity-50"
-        />
-      </div>
-
-      {#if weirpackError}
-        <p class="text-xs text-red-700 dark:text-red-400">{weirpackError}</p>
-      {/if}
-
-      {#if weirpacks.length === 0}
-        <p class="text-sm text-gray-600 dark:text-gray-400">
-          No Weirpacks installed.
-        </p>
-      {:else}
-        <div class="space-y-3">
-          {#each weirpacks as weirpack}
-            <div
-              class="flex items-center justify-between gap-3 rounded-md border border-primary-100 p-3"
-            >
-              <div class="min-w-0">
-                <p class="truncate text-sm">
-                  {weirpack.name}{weirpack.version
-                    ? ` v${weirpack.version}`
-                    : ""}
-                </p>
-                <p class="truncate text-xs text-gray-600 dark:text-gray-400">
-                  {weirpack.filename}
-                </p>
-              </div>
-              <Button
-                size="sm"
-                color="light"
-                disabled={weirpackBusy}
-                on:click={() => removeWeirpack(weirpack.id)}
-              >
-                Remove
-              </Button>
-            </div>
-          {/each}
-        </div>
-      {/if}
     </Card>
 
     <!-- ── RULES ─────────────────────────────── -->
