@@ -2,3 +2,4 @@
 node_modules/
 build/
 dist/
+/packages/chrome-plugin/src/olbaro-wasm/

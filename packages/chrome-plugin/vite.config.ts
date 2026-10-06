@@ -2,7 +2,6 @@ import { crx } from '@crxjs/vite-plugin';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
-import copy from 'rollup-plugin-copy';
 import sveltePreprocess from 'svelte-preprocess';
 import { defineConfig, loadEnv, type PluginOption } from 'vite';
 import manifest from './src/manifest';
@@ -31,15 +30,6 @@ export default defineConfig(({ mode }) => {
 			},
 		},
 		plugins: [
-			copy({
-				hook: 'buildStart',
-				targets: [
-					{
-						src: 'node_modules/harper.js/dist/harper_wasm_bg.wasm',
-						dest: './public/wasm',
-					},
-				],
-			}) as unknown as PluginOption,
 			tailwindcss(),
 			crx({ manifest, browser }) as unknown as PluginOption,
 			svelte({

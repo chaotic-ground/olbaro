@@ -2,7 +2,8 @@
 	"private": true,
 	"license": "Apache-2.0",
 	"scripts": {
-		"build": "pnpm -r build"
+		"build:wasm": "cargo build --release --locked -p olbaro-wasm --target wasm32-unknown-unknown && wasm-bindgen --target web --out-dir packages/chrome-plugin/src/olbaro-wasm target/wasm32-unknown-unknown/release/olbaro_wasm.wasm",
+		"build": "pnpm build:wasm && pnpm -r build"
 	},
 	"engines": {
 		"node": ">=22",
