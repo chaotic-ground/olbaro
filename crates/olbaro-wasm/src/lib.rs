@@ -27,6 +27,7 @@ struct Lint {
     problem_text: String,
     message: String,
     suggestion: Option<String>,
+    replacements: Vec<String>,
 }
 
 #[wasm_bindgen]
@@ -116,6 +117,7 @@ fn lint_json(linter: &Linter, text: &str) -> String {
             problem_text: doc.slice(d.span).to_owned(),
             message: d.message,
             suggestion: d.suggestion,
+            replacements: d.replacements,
         })
         .collect();
     serde_json::to_string(&lints).expect("lints serialize")
@@ -156,6 +158,13 @@ mod tests {
             String::from_utf16(&utf16[start..end]).unwrap(),
             lint["problem_text"]
         );
+    }
+
+    #[test]
+    fn replacements_are_passed_through() {
+        let lint = &lints(r#"{"llmstyle.baro": true}"#, "바로 그 사람이다.")[0];
+        assert_eq!(lint["problem_text"], "바로 그");
+        assert_eq!(lint["replacements"], serde_json::json!(["그"]));
     }
 
     #[test]

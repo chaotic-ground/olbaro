@@ -1,4 +1,10 @@
-import type { Dialect, LintConfig, StructuredLintConfig, StructuredLintSetting } from 'harper.js';
+import {
+	type Dialect,
+	type LintConfig,
+	type StructuredLintConfig,
+	type StructuredLintSetting,
+	SuggestionKind,
+} from 'harper.js';
 import type { LintKind, UnpackedLint, UnpackedLintGroups } from 'lint-framework';
 import init, { OlbaroLinter as WasmLinter } from '../olbaro-wasm/olbaro_wasm';
 import wasmPath from '../olbaro-wasm/olbaro_wasm_bg.wasm?url';
@@ -23,6 +29,8 @@ type OlbaroLint = {
 	message: string;
 	/** Advice for the writer, not text to put in place of the span. */
 	suggestion: string | null;
+	/** Text to put in place of the span; each becomes a one-click fix. */
+	replacements: string[];
 };
 
 const GROUP_LABELS: Record<string, string> = {
@@ -180,7 +188,7 @@ function unpack(text: string, lint: OlbaroLint): UnpackedLint {
 	return {
 		span: { start: lint.start, end: lint.end },
 		// olbaro's suggestion is advice ("'바로'를 뺀다"), not replacement text, so it goes in the
-		// message and the popup offers no one-click fix.
+		// message; one-click fixes come from `replacements`.
 		message_html:
 			lint.suggestion == null
 				? escapeHtml(lint.message)
@@ -188,7 +196,10 @@ function unpack(text: string, lint: OlbaroLint): UnpackedLint {
 		problem_text: lint.problem_text,
 		lint_kind: kind,
 		lint_kind_pretty: pretty,
-		suggestions: [],
+		suggestions: lint.replacements.map((replacement) => ({
+			kind: SuggestionKind.Replace,
+			replacement_text: replacement,
+		})),
 		context_hash: contextHash(text, lint),
 		source: text,
 	};
