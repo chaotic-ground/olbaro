@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Lexical Webcomponent Test</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 2rem;
+      }
+      reddit-lexical-editor {
+        display: block;
+        max-width: 600px;
+      }
+      [data-lexical-editor="true"] {
+        border: 1px solid #ccc;
+        padding: 1rem;
+        min-height: 150px;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Lexical Editor Inside Webcomponent</h1>
+    <reddit-lexical-editor></reddit-lexical-editor>
+    <section aria-live="polite" id="lexical-mirror" style="margin-top: 1rem; font-weight: bold;"></section>
+
+    <script type="module">
+      class RedditLexicalEditor extends HTMLElement {
+        constructor() {
+          super();
+          this._init();
+        }
+
+        _init() {
+          const editor = document.createElement('div');
+          editor.setAttribute('contenteditable', 'true');
+          editor.setAttribute('data-lexical-editor', 'true');
+          editor.textContent = 'This is an test';
+
+          const mirror = document.getElementById('lexical-mirror');
+          const syncMirror = () => {
+            if (mirror) mirror.textContent = editor.textContent ?? '';
+          };
+
+          // Simulates WhatsApp's Lexical: tracks cursor internally, ignores programmatic selection
+          let internalCursorPosition = 0;
+
+          editor.addEventListener('click', () => {
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0) {
+              const range = sel.getRangeAt(0);
+              const preRange = document.createRange();
+              preRange.selectNodeContents(editor);
+              preRange.setEnd(range.startContainer, range.startOffset);
+              internalCursorPosition = preRange.toString().length;
+            }
+          });
+
+          editor.addEventListener('beforeinput', (event) => {
+            if (
+              event.isTrusted === false &&
+              event.inputType === 'insertText' &&
+              typeof event.data === 'string'
+            ) {
+              event.preventDefault();
+              // Mimic Reddit's Lexical behaviour that applies the full change
+              // in response to synthetic beforeinput events emitted by our
+              // extension when a suggestion is accepted.
+              setTimeout(() => {
+                const currentText = editor.textContent ?? '';
+                const newText =
+                  currentText.slice(0, internalCursorPosition) +
+                  event.data +
+                  currentText.slice(internalCursorPosition);
+                editor.textContent = newText;
+                syncMirror();
+              }, 0);
+            }
+          });
+
+          editor.addEventListener('input', syncMirror);
+          editor.addEventListener('keyup', syncMirror);
+
+          syncMirror();
+
+          this.append(editor);
+        }
+      }
+
+      customElements.define('reddit-lexical-editor', RedditLexicalEditor);
+    </script>
+  </body>
+</html>
