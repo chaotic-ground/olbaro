@@ -1,0 +1,11 @@
+[package]
+name = "olbaro-core"
+description = "올바로 코어: 문서 모델, 규칙 트레이트, 설정, 진단"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pulldown-cmark.workspace = true
