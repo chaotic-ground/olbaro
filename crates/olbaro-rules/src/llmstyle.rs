@@ -280,16 +280,16 @@ impl Rule for BaroDeictic {
         for b in prose_blocks(doc) {
             for caps in BARO.captures_iter(&b.text) {
                 let m = caps.get(1).unwrap();
-                let end = m.start() + m.as_str().trim_end().len();
-                out.push(
-                    Diagnostic::new(
-                        self.id(),
-                        Severity::Warning,
-                        b.to_source(Span::new(m.start(), end)),
-                        "'바로'로 가리키기",
-                    )
-                    .with_suggestion("'바로'를 뺀다"),
-                );
+                let found = m.as_str().trim_end();
+                let span = b.to_source(Span::new(m.start(), m.start() + found.len()));
+                let mut d =
+                    Diagnostic::new(self.id(), Severity::Warning, span, "'바로'로 가리키기")
+                        .with_suggestion("'바로'를 뺀다");
+                // 사이에 마크업이 끼어 있으면 바꿔 넣을 때 마크업이 지워지므로 후보를 내지 않는다.
+                if doc.slice(span) == found {
+                    d = d.with_replacement(found["바로".len()..].trim_start());
+                }
+                out.push(d);
             }
         }
     }
@@ -528,6 +528,28 @@ mod tests {
             lint("통로가 없는 셈입니다."),
             vec![("llmstyle.sem-ipnida", "셈입니다".into())]
         );
+    }
+
+    #[test]
+    fn baro_offers_replacement_only_on_plain_text() {
+        let fix = |src: &str| -> Vec<Vec<String>> {
+            let mut config = Config::new();
+            config.set_rule("llmstyle.baro", true);
+            Linter::new(rules(), config)
+                .lint(src)
+                .into_iter()
+                .map(|d| d.replacements)
+                .collect()
+        };
+        assert_eq!(
+            fix("바로 그 지점을 찾았습니다."),
+            vec![vec!["그".to_owned()]]
+        );
+        assert_eq!(
+            fix("답은 바로 여기에 있습니다."),
+            vec![vec!["여기".to_owned()]]
+        );
+        assert_eq!(fix("바로 **그** 지점입니다."), vec![Vec::<String>::new()]);
     }
 
     #[test]
