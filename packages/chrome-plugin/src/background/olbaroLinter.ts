@@ -34,6 +34,8 @@ type OlbaroLint = {
 };
 
 const GROUP_LABELS: Record<string, string> = {
+	spelling: '맞춤법',
+	spacing: '띄어쓰기',
 	llmstyle: 'LLM 말투',
 };
 

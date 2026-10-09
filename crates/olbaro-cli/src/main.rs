@@ -106,9 +106,11 @@ fn main() -> ExitCode {
                 "{path}:{line}:{col}: {level} [{}] {}: «{excerpt}»",
                 d.rule, d.message
             );
-            match d.suggestion {
-                Some(s) => println!(" → {s}"),
-                None => println!(),
+            // 바꿀 글이 있으면 그것을, 없으면 조언을 보인다.
+            match (d.replacements.first(), d.suggestion) {
+                (Some(r), _) => println!(" → «{r}»"),
+                (None, Some(s)) => println!(" → {s}"),
+                (None, None) => println!(),
             }
         }
     }

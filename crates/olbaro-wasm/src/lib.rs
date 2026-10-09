@@ -172,11 +172,11 @@ mod tests {
         let rules: Vec<Value> =
             serde_json::from_str(&rules_json(&build(r#"{"llmstyle": true}"#).unwrap())).unwrap();
         assert!(!rules.is_empty());
-        assert!(
-            rules
-                .iter()
-                .all(|r| r["group"] == "llmstyle" && r["enabled"] == true)
-        );
+        // 맞춤법·띄어쓰기는 기본으로 켜지고, llmstyle은 설정으로 켰다.
+        assert!(rules.iter().all(|r| r["enabled"] == true));
+        for group in ["spelling", "spacing", "llmstyle"] {
+            assert!(rules.iter().any(|r| r["group"] == group), "{group}");
+        }
     }
 
     #[test]

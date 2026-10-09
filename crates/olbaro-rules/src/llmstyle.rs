@@ -8,6 +8,8 @@ use std::sync::LazyLock;
 use olbaro_core::{Block, BlockKind, Diagnostic, Document, Rule, Severity, Span};
 use regex::Regex;
 
+use crate::hangul::{NIEUN, has_final};
+
 pub const GROUP: &str = "llmstyle";
 
 pub fn rules() -> Vec<Box<dyn Rule>> {
@@ -362,13 +364,7 @@ fn is_sentence_like(heading: &str) -> bool {
     }
     // "한다", "된다", "간다"처럼 ㄴ 받침 음절 + 다.
     let mut chars = t.chars().rev();
-    matches!((chars.next(), chars.next()), (Some('다'), Some(prev)) if jongseong(prev) == Some(4))
-}
-
-/// 한글 음절의 받침 번호(없으면 0). 4는 ㄴ.
-pub(crate) fn jongseong(c: char) -> Option<u32> {
-    let code = (c as u32).checked_sub(0xAC00)?;
-    (code < 11172).then_some(code % 28)
+    matches!((chars.next(), chars.next()), (Some('다'), Some(prev)) if has_final(prev, NIEUN))
 }
 
 const CONJUNCTIONS: &[&str] = &[
