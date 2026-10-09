@@ -4,7 +4,6 @@ import {
 	isVisible,
 	LintFramework,
 	leafNodes,
-	type UnpackedLint,
 } from 'lint-framework';
 import isSubstack from '../isSubstack';
 import isWordPress from '../isWordPress';
@@ -24,12 +23,6 @@ const fw = new LintFramework(
 		getDelay: () => ProtocolClient.getDelay(),
 		openOptions: () => ProtocolClient.openOptions(),
 		addToUserDictionary: (words) => ProtocolClient.addToUserDictionary(words),
-		reportError: (lint: UnpackedLint, ruleId: string) =>
-			ProtocolClient.openReportError(
-				padWithContext(lint.source, lint.span.start, lint.span.end, 15),
-				ruleId,
-				'',
-			),
 		setRuleEnabled: async (ruleId, enabled) => {
 			await ProtocolClient.setRuleEnabled(ruleId, enabled);
 			fw.update();
@@ -38,15 +31,6 @@ const fw = new LintFramework(
 );
 
 const syncGoogleDocsBridge = createGoogleDocsBridgeSync(fw);
-
-function padWithContext(source: string, start: number, end: number, contextLength: number): string {
-	const normalizedStart = Math.max(0, Math.min(start, source.length));
-	const normalizedEnd = Math.max(normalizedStart, Math.min(end, source.length));
-	const contextStart = Math.max(0, normalizedStart - contextLength);
-	const contextEnd = Math.min(source.length, normalizedEnd + contextLength);
-
-	return source.slice(contextStart, contextEnd);
-}
 
 const keepAliveCallback = () => {
 	ProtocolClient.lint('', 'example.com', {});
